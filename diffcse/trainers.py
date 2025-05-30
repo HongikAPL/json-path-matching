@@ -566,6 +566,9 @@ class CLTrainer(Trainer):
             self.control = self.callback_handler.on_epoch_end(self.args, self.state, self.control)
             self._maybe_log_save_evaluate(tr_loss, model, trial, epoch, tr_pos_sim=tr_pos_sim, tr_neg_sim=tr_neg_sim, tr_others=tr_others)
 
+            # validate
+            self.predict()
+
             if self.args.tpu_metrics_debug or self.args.debug:
                 if is_torch_tpu_available():
                     # tpu-comment: Logging debug metrics for PyTorch/XLA (compile, execute times, ops, etc.)
