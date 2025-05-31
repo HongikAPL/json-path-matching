@@ -1,0 +1,6 @@
+*.png
+.env
+LICENSE
+README.md
+requirements.txt
+setup.py

@@ -7,6 +7,21 @@ import transformers
 from transformers import RobertaTokenizer
 from modeling_roberta import RobertaPreTrainedModel, RobertaModel, RobertaLMHead
 from modeling_bert import BertPreTrainedModel, BertModel, BertLMPredictionHead
+
+# VarCLR 추가
+import os
+import gdown
+from transformers import PreTrainedModel, AutoConfig
+# from varclr.models import urls_pretrained_model
+PRETRAINED_TOKENIZER = "microsoft/codebert-base"
+
+PRETRAINED_CODEBERT_URL = (
+    "https://drive.google.com/uc?id=1xl8kdQtJ7ke4jyv5kHDiOc5dScPTTKzg"
+)
+PRETRAINED_CODEBERT_FOLDER = "varclr_bert"
+PRETRAINED_CODEBERT_MD5 = "3844bd6e76a928084b0d742ac120a91c"
+
+
 from transformers.activations import gelu
 from transformers.file_utils import (
     add_code_sample_docstrings,
@@ -443,3 +458,187 @@ class RobertaForCL(RobertaPreTrainedModel):
                 mlm_labels=mlm_labels,
                 cls_token=0,
             )
+
+# VarCLR 가중치 로드
+class VarclrForCL(BertPreTrainedModel):
+    _keys_to_ignore_on_load_missing = [r"position_ids"]
+
+    def __init__(self, config, *model_args, **model_kargs):
+        super().__init__(config)
+        self.model_args = model_kargs["model_args"]
+        self.bert = BertModel(config, add_pooling_layer=False)
+        self.lm_head = BertLMPredictionHead(config)
+        self.discriminator = BertModel(config, add_pooling_layer=False)
+        cl_init(self, config)
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        """
+        BertPreTrainedModel.from_pretrained 오버라이드
+        Google Drive에서 사전학습된 CodeBERT 모델을 다운로드하고 압축 해제한 뒤,
+        config를 불러와서 VarclrForCL 객체를 생성.
+        """
+        save_path = kwargs.get("cache_dir", "./")
+        varclr_model_dir = os.path.join(save_path, "varclr_bert")  # 압축 해제 폴더
+        varclr_model_path = os.path.join(varclr_model_dir, "pytorch_model.bin")  # 실제 가중치 파일
+
+        # 가중치 다운로드 및 압축 해제
+        gdown.cached_download(
+            PRETRAINED_CODEBERT_URL,
+            os.path.join(save_path, "varclr.zip"),
+            md5=PRETRAINED_CODEBERT_MD5,
+            postprocess=gdown.extractall,
+        )
+
+        config = kwargs.get("config", None)
+        if config is None:
+            config = AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
+
+        # 인스턴스 생성, varclr_bert 안의 config 대신 전달 받은 config 사용
+        instance = cls(config=config, *model_args, **kwargs)
+
+        # 가중치 로드
+        if os.path.exists(varclr_model_path):
+            state_dict = torch.load(varclr_model_path, map_location="cpu")
+            instance.bert.load_state_dict(state_dict, strict=False)
+            instance.discriminator.load_state_dict(state_dict, strict=False)
+        else:
+            print(f"[VarCLR] Warning: {varclr_model_path} not found. Using randomly initialized weights.")
+
+        return instance
+    
+    def forward(self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        sent_emb=False,
+        mlm_input_ids=None,
+        mlm_labels=None,
+    ):
+        if sent_emb:
+            return sentemb_forward(self, self.bert,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+                position_ids=position_ids,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds,
+                labels=labels,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
+        else:
+            return cl_forward(self, self.bert,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+                position_ids=position_ids,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds,
+                labels=labels,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+                mlm_input_ids=mlm_input_ids,
+                mlm_labels=mlm_labels,
+                cls_token=101,
+            )
+
+# # VarCLR 를 huggingface 모델 래핑해보려 했으나 varclr.encoders 내부에서 config를 사용하지 않고있어 불가능
+'''
+class VarclrForCL(PreTrainedModel):
+    _keys_to_ignore_on_load_missing = [r"position_ids"]
+
+    def __init__(self, config, *model_args, **model_kargs):
+        super().__init__(config)
+        self.model_args = model_kargs["model_args"]
+        self.varclr = VarclrBertWrapper(config, add_pooling_layer=False)
+
+        self.lm_head = VarclrLMPredictionHead(config)
+        self.discriminator = VarclrBertWrapper(config, add_pooling_layer=False)
+
+        cl_init(self, config)
+    
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        """
+        Google Drive에서 사전학습된 CodeBERT 모델을 다운로드하고 압축 해제한 뒤,
+        config를 불러와서 VarclrForCL 객체를 생성합니다.
+        """
+        save_path = kwargs.get("cache_dir", "./")
+        varclr_model_path = os.path.join(save_path, "varclr_bert")  # PRETRAINED_CODEBERT_FOLDER
+
+        # 모델 다운로드 및 압축 해제
+        gdown.cached_download(
+            urls_pretrained_model.PRETRAINED_CODEBERT_URL,  # PRETRAINED_CODEBERT_URL
+            os.path.join(save_path, "bert.zip"),
+            md5=urls_pretrained_model.PRETRAINED_CODEBERT_MD5,  # PRETRAINED_CODEBERT_MD5
+            postprocess=gdown.extractall,
+        )
+
+        # HuggingFace와 호환되는 config 로드
+        config = AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
+
+        # VarclrForCL 객체 초기화
+        instance = cls(config=config, *model_args, **kwargs)
+
+        # 실제로 가중치 로드 (VarclrBertWrapper 내부의 varclr_encoder에)
+        # bert_model_path는 압축 해제된 모델 디렉토리 경로여야 함
+        instance.varclr.varclr_encoder = instance.varclr.varclr_encoder.load(varclr_model_path)
+        instance.discriminator.varclr_encoder = instance.discriminator.varclr_encoder.load(varclr_model_path)
+
+        return instance
+
+    def forward(self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        labels=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+        sent_emb=False,
+        mlm_input_ids=None,
+        mlm_labels=None,
+    ):
+        if sent_emb:
+            return sentemb_forward(self, self.varclr,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+                position_ids=position_ids,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds,
+                labels=labels,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+            )
+        else:
+            return cl_forward(self, self.varclr,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+                position_ids=position_ids,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds,
+                labels=labels,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                return_dict=return_dict,
+                mlm_input_ids=mlm_input_ids,
+                mlm_labels=mlm_labels,
+                cls_token=101,
+            )
+'''
