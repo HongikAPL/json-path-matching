@@ -360,7 +360,7 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
-# 모델 선택 VarCLR 추가
+    # 모델 선택 VarCLR 추가
     if model_args.model_name_or_path:
         if 'varclr' in model_args.model_name_or_path:
             # from_pretrained 오버라이딩
