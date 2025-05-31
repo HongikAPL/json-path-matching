@@ -1,8 +1,11 @@
-scipy==1.5.4
+accelerate==0.27.2
 datasets==1.2.1
-pandas==1.1.5
+dill==0.3.4
+numpy==1.23.5
+pandas==2.2.3
+python==3.9.21
+scipy==1.12.0
 scikit-learn==0.24.0
-prettytable==2.1.0
-gradio
-torch==1.7.1
-setuptools==49.3.0
+torch==2.1.2
+transformers==4.38.2
+tokenizers==0.14.1
