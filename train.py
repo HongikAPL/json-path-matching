@@ -35,7 +35,7 @@ from transformers.tokenization_utils_base import BatchEncoding, PaddingStrategy,
 from transformers.trainer_utils import is_main_process
 from transformers.data.data_collator import DataCollatorForLanguageModeling
 from transformers.file_utils import cached_property, torch_required, is_torch_available, is_torch_tpu_available
-from diffcse.models import RobertaForCL, BertForCL
+from diffcse.models import RobertaForCL, BertForCL, VarclrForCL
 from diffcse.trainers import CLTrainer
 
 logger = logging.getLogger(__name__)
@@ -349,6 +349,9 @@ def main():
     }
     if model_args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
+    ### VarCLR 토크나이저 추가
+    elif model_args.model_name_or_path == 'varclr':
+        tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base", **tokenizer_kwargs)
     elif model_args.model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
     else:
@@ -357,8 +360,23 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
+# 모델 선택 VarCLR 추가
     if model_args.model_name_or_path:
-        if 'roberta' in model_args.model_name_or_path:
+        if 'varclr' in model_args.model_name_or_path:
+            # from_pretrained 오버라이딩
+            model = VarclrForCL.from_pretrained(
+                model_args.model_name_or_path,
+                cache_dir=model_args.cache_dir,
+                model_args=model_args,
+                config=config,
+                cache_dir=model_args.cache_dir,
+                revision=model_args.model_revision,
+                use_auth_token=True if model_args.use_auth_token else None,
+                model_args=model_args
+            )
+            # from_pretrained 에서 가중치 로드 완료 되므로 from_pretrained 호출 안함
+            model.electra_head = torch.nn.Linear(768, 2)
+        elif 'roberta' in model_args.model_name_or_path:
             model = RobertaForCL.from_pretrained(
                 model_args.model_name_or_path,
                 from_tf=bool(".ckpt" in model_args.model_name_or_path),
