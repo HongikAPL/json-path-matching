@@ -238,7 +238,6 @@ class Trainer:
         args: TrainingArguments = None,
         data_collator: Optional[DataCollator] = None,
         train_dataset: Optional[Dataset] = None,
-        test_dataset: Optional[Dataset] = None,
         eval_dataset: Optional[Dataset] = None,
         tokenizer: Optional["PreTrainedTokenizerBase"] = None,
         model_init: Callable[[], PreTrainedModel] = None,
@@ -279,7 +278,6 @@ class Trainer:
         default_collator = default_data_collator if tokenizer is None else DataCollatorWithPadding(tokenizer)
         self.data_collator = data_collator if data_collator is not None else default_collator
         self.train_dataset = train_dataset
-        self.test_dataset = test_dataset
         self.eval_dataset = eval_dataset
         self.tokenizer = tokenizer
 
@@ -328,16 +326,12 @@ class Trainer:
             raise ValueError("train_dataset does not implement __len__, max_steps has to be specified")
         if eval_dataset is not None and not isinstance(eval_dataset, collections.abc.Sized):
             raise ValueError("eval_dataset must implement __len__")
-        if test_dataset is not None and not isinstance(test_dataset, collections.abc.Sized):
-            raise ValueError("test_dataset must implement __len__")
 
         if is_datasets_available():
             if isinstance(train_dataset, datasets.Dataset):
                 self._remove_unused_columns(self.train_dataset, description="training")
             if isinstance(eval_dataset, datasets.Dataset):
                 self._remove_unused_columns(self.eval_dataset, description="evaluation")
-            if isinstance(test_dataset, datasets.Dataset):
-                self._remove_unused_columns(self.test_dataset, description="test")
 
         # Setup Sharded DDP training
         self.sharded_dpp = False
@@ -1467,7 +1461,7 @@ class Trainer:
         return output.metrics
 
     def predict(
-        self, test_dataset: Dataset, ignore_keys: Optional[List[str]] = None, metric_key_prefix: str = "predict"
+        self, test_dataset: Dataset, ignore_keys: Optional[List[str]] = None, metric_key_prefix: str = "eval"
     ) -> PredictionOutput:
         """
         Run prediction and returns predictions and potential metrics.
@@ -1509,7 +1503,6 @@ class Trainer:
             test_dataloader, description="Prediction", ignore_keys=ignore_keys, metric_key_prefix=metric_key_prefix
         )
         output.metrics.update(speed_metrics(metric_key_prefix, start_time, len(test_dataset)))
-        logger.info(output)
         return output
 
     def prediction_loop(
