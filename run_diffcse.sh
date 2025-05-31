@@ -8,7 +8,8 @@ python train.py \
     --model_name_or_path bert-base-uncased \
     --generator_name distilbert-base-uncased \
     --train_file data/wiki1m_for_simcse.txt \
-    --output_dir your_output_dir \
+    --output_dir ./output \
+    --cache_dir ./cache \
     --num_train_epochs 2 \
     --per_device_train_batch_size 64 \
     --learning_rate $LR \
@@ -21,7 +22,7 @@ python train.py \
     --mlp_only_train \
     --overwrite_output_dir \
     --logging_first_step \
-    --logging_dir your_logging_dir \
+    --logging_dir ./log \
     --temp 0.05 \
     --do_train \
     --do_eval \

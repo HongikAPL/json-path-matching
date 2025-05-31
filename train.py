@@ -34,7 +34,7 @@ from transformers import (
 from transformers.tokenization_utils_base import BatchEncoding, PaddingStrategy, PreTrainedTokenizerBase
 from transformers.trainer_utils import is_main_process
 from transformers.data.data_collator import DataCollatorForLanguageModeling
-from transformers.file_utils import cached_property, torch_required, is_torch_available, is_torch_tpu_available
+from transformers.file_utils import cached_property, is_torch_available, is_torch_tpu_available # torch_required
 from diffcse.models import RobertaForCL, BertForCL, VarclrForCL
 from diffcse.trainers import CLTrainer
 
@@ -207,7 +207,7 @@ class OurTrainingArguments(TrainingArguments):
     )
 
     @cached_property
-    @torch_required
+    # @torch_required
     def _setup_devices(self) -> "torch.device":
         logger.info("PyTorch: setting up devices")
         if self.no_cuda:
@@ -366,8 +366,7 @@ def main():
             # from_pretrained 오버라이딩
             model = VarclrForCL.from_pretrained(
                 model_args.model_name_or_path,
-                cache_dir=model_args.cache_dir,
-                model_args=model_args,
+                from_tf=bool(".ckpt" in model_args.model_name_or_path),
                 config=config,
                 cache_dir=model_args.cache_dir,
                 revision=model_args.model_revision,
