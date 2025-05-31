@@ -8,3 +8,4 @@ wandb
 cache
 log
 __pycache__
+output
