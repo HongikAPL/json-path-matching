@@ -1,5 +1,11 @@
 #!/bin/bash
-# BERT: distillbert-base-uncased, Roberta VarCLR: distrilroberta-base
+# model_name_or_path
+# BERT: bert-base-uncased
+# Roberta: roberta-base
+# VarCLR: ./varclr
+# generator_name
+# BERT: distillbert-base-uncased
+# Roberta, VarCLR: distrilroberta-base
 
 LR=7e-6
 MASK=0.30
