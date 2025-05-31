@@ -2,7 +2,7 @@
 .env
 LICENSE
 README.md
-requirements.txt
+# requirements.txt
 setup.py
 wandb
 cache

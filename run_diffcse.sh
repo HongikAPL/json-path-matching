@@ -6,7 +6,7 @@ MASK=0.30
 LAMBDA=0.005
 
 python train.py \
-    --model_name_or_path roberta-base \
+    --model_name_or_path ./varclr \
     --generator_name distilroberta-base \
     --train_file data/train.txt \
     --output_dir ./output \
