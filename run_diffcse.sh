@@ -1,13 +1,14 @@
 #!/bin/bash
+# BERT: distillbert-base-uncased, Roberta VarCLR: distrilroberta-base
 
 LR=7e-6
 MASK=0.30
 LAMBDA=0.005
 
 python train.py \
-    --model_name_or_path bert-base-uncased \
-    --generator_name distilbert-base-uncased \
-    --train_file data/wiki1m_for_simcse.txt \
+    --model_name_or_path roberta-base \
+    --generator_name distilroberta-base \
+    --train_file data/train.txt \
     --output_dir ./output \
     --cache_dir ./cache \
     --num_train_epochs 2 \
@@ -28,4 +29,6 @@ python train.py \
     --do_eval \
     --batchnorm \
     --lambda_weight $LAMBDA \
-    --fp16 --masking_ratio $MASK
+    --masking_ratio $MASK
+    # 분산학습
+    # --fp16 --masking_ratio $MASK

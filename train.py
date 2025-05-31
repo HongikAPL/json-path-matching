@@ -206,6 +206,13 @@ class OurTrainingArguments(TrainingArguments):
         metadata={"help": "Evaluate transfer task dev sets (in validation)."}
     )
 
+    # transformers >= 4.38.2
+    def __post_init__(self):
+        super().__post_init__()
+        # ✅ transformers >= 4.37 compatibility fix
+        if not hasattr(self, "distributed_state"):
+            self.distributed_state = None
+
     @cached_property
     # @torch_required
     def _setup_devices(self) -> "torch.device":
@@ -335,6 +342,11 @@ def main():
     }
     if model_args.config_name:
         config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
+    
+    # VarCLR config 추가
+    elif 'varclr' in model_args.model_name_or_path:
+        config = AutoConfig.from_pretrained("microsoft/codebert-base", **config_kwargs)
+
     elif model_args.model_name_or_path:
         config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
     else:
@@ -349,9 +361,11 @@ def main():
     }
     if model_args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
+
     ### VarCLR 토크나이저 추가
-    elif model_args.model_name_or_path == 'varclr':
+    elif 'varclr' in model_args.model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base", **tokenizer_kwargs)
+        
     elif model_args.model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
     else:

@@ -15,6 +15,7 @@ from transformers import Trainer
 from transformers.modeling_utils import PreTrainedModel
 from transformers.training_args import ParallelMode, TrainingArguments
 from transformers.utils import logging
+from torch.nn.parallel import DistributedDataParallel
 from transformers.trainer_utils import (
     PREFIX_CHECKPOINT_DIR,
     BestRun,
@@ -23,7 +24,7 @@ from transformers.trainer_utils import (
     PredictionOutput,
     TrainOutput,
     default_compute_objective,
-    default_hp_space,
+    # default_hp_space,
     set_seed,
     speed_metrics,
 )
@@ -72,7 +73,7 @@ if version.parse(torch.__version__) >= version.parse("1.6"):
 if is_datasets_available():
     import datasets
 
-from transformers.trainer import _model_unwrap
+# from transformers.trainer import _model_unwrap
 from transformers.optimization import Adafactor, AdamW, get_scheduler
 import copy
 # Set path to SentEval
@@ -89,6 +90,9 @@ from filelock import FileLock
 logger = logging.get_logger(__name__)
 
 class CLTrainer(Trainer):
+    def __init__(self, model, args, train_dataset, tokenizer, data_collator, **kwargs):
+        super().__init__(model=model, args=args, train_dataset=train_dataset, tokenizer=tokenizer, data_collator=data_collator, **kwargs)
+        self.use_amp = getattr(args, "fp16", False)
 
     def evaluate(
         self,
@@ -142,6 +146,11 @@ class CLTrainer(Trainer):
 
         self.log(metrics)
         return metrics
+    
+    def unwrap_model(model):
+        if isinstance(model, DistributedDataParallel):
+            return model.module
+        return model
         
     def _save_checkpoint(self, model, trial, metrics=None):
         """
@@ -151,7 +160,8 @@ class CLTrainer(Trainer):
 
         # In all cases, including ddp/dp/deepspeed, self.model is always a reference to the model we
         # want to save.
-        assert _model_unwrap(model) is self.model, "internal model should be a reference to self.model"
+        # assert _model_unwrap(model) is self.model, "internal model should be a reference to self.model"
+        assert unwrap_model(model) is self.model, "internal model should be a reference to self.model"
 
         # Determine the new best metric / best model checkpoint
         if metrics is not None and self.args.metric_for_best_model is not None:
@@ -371,9 +381,13 @@ class CLTrainer(Trainer):
             model = torch.nn.DataParallel(model)
 
         # Distributed training (should be after apex fp16 initialization)
-        if self.sharded_dpp:
-            model = ShardedDDP(model, self.optimizer)
-        elif self.args.local_rank != -1:
+        # if self.sharded_dpp:
+        '''
+        # 분산 학습 안쓰니 주석처리
+        '''
+        # if getattr(self, "sharded_dpp", False):
+        #     model = ShardedDDP(model, self.optimizer)
+        if self.args.local_rank != -1:
             model = torch.nn.parallel.DistributedDataParallel(
                 model,
                 device_ids=[self.args.local_rank],

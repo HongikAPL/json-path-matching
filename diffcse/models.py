@@ -460,15 +460,15 @@ class RobertaForCL(RobertaPreTrainedModel):
             )
 
 # VarCLR 가중치 로드
-class VarclrForCL(BertPreTrainedModel):
+class VarclrForCL(RobertaPreTrainedModel):
     _keys_to_ignore_on_load_missing = [r"position_ids"]
 
     def __init__(self, config, *model_args, **model_kargs):
         super().__init__(config)
         self.model_args = model_kargs["model_args"]
-        self.bert = BertModel(config, add_pooling_layer=False)
-        self.lm_head = BertLMPredictionHead(config)
-        self.discriminator = BertModel(config, add_pooling_layer=False)
+        self.bert = RobertaModel(config, add_pooling_layer=False)
+        self.lm_head = RobertaLMHead(config)
+        self.discriminator = RobertaModel(config, add_pooling_layer=False)
         cl_init(self, config)
 
     @classmethod
@@ -490,7 +490,7 @@ class VarclrForCL(BertPreTrainedModel):
             postprocess=gdown.extractall,
         )
 
-        config = kwargs.get("config", None)
+        config = kwargs.pop("config", None)
         if config is None:
             config = AutoConfig.from_pretrained(pretrained_model_name_or_path, **kwargs)
 
@@ -506,6 +506,13 @@ class VarclrForCL(BertPreTrainedModel):
             print(f"[VarCLR] Warning: {varclr_model_path} not found. Using randomly initialized weights.")
 
         return instance
+    
+    def get_input_embeddings(self):
+        return self.bert.embeddings.word_embeddings
+
+    def set_input_embeddings(self, new_embeddings):
+        self.bert.embeddings.word_embeddings = new_embeddings
+
     
     def forward(self,
         input_ids=None,
