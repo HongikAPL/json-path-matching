@@ -10,6 +10,9 @@ import time
 import warnings
 from pathlib import Path
 import importlib.util
+import pandas as pd
+from sklearn.metrics import roc_auc_score
+import torch.nn.functional as F
 from packaging import version
 from transformers import Trainer
 from transformers.modeling_utils import PreTrainedModel
@@ -90,59 +93,48 @@ logger = logging.get_logger(__name__)
 
 class CLTrainer(Trainer):
 
+    # SentEval 쓰지 않음, 하드코딩, validation.txt
+
     def evaluate(
-        self,
-        eval_dataset: Optional[Dataset] = None,
-        ignore_keys: Optional[List[str]] = None,
-        metric_key_prefix: str = "eval",
-        eval_senteval_transfer: bool = False,
+    self,
+    eval_dataset: Optional[Dataset] = None,
+    ignore_keys: Optional[List[str]] = None,
+    metric_key_prefix: str = "eval",
+    eval_senteval_transfer: bool = False,
     ) -> Dict[str, float]:
+        import pandas as pd
+        val_df = pd.read_csv("data/validation.txt", sep=None, engine="python", header=None, names=["path1", "path2", "label"])
+        path1_list = val_df["path1"].astype(str).tolist()
+        path2_list = val_df["path2"].astype(str).tolist()
+        labels = val_df["label"].astype(int).tolist()
 
-        # SentEval prepare and batcher
-        def prepare(params, samples):
-            return
-
-        def batcher(params, batch):
-            sentences = [' '.join(s) for s in batch]
-            batch = self.tokenizer.batch_encode_plus(
-                sentences,
-                return_tensors='pt',
-                padding=True,
-            )
-            for k in batch:
-                batch[k] = batch[k].to(self.args.device)
-            with torch.no_grad():
-                outputs = self.model(**batch, output_hidden_states=True, return_dict=True, sent_emb=True)
-                pooler_output = outputs.pooler_output
-            return pooler_output.cpu()
-
-        # Set params for SentEval (fastmode)
-        params = {'task_path': PATH_TO_DATA, 'usepytorch': True, 'kfold': 5}
-        params['classifier'] = {'nhid': 0, 'optim': 'rmsprop', 'batch_size': 128,
-                                            'tenacity': 3, 'epoch_size': 2}
-
-        se = senteval.engine.SE(params, batcher, prepare)
-        tasks = ['STSBenchmark', 'SICKRelatedness']
-        if eval_senteval_transfer or self.args.eval_transfer:
-            tasks = ['STSBenchmark', 'SICKRelatedness', 'MR', 'CR', 'SUBJ', 'MPQA', 'SST2', 'TREC', 'MRPC']
         self.model.eval()
-        results = se.eval(tasks)
-        
-        stsb_spearman = results['STSBenchmark']['dev']['spearman'][0]
-        sickr_spearman = results['SICKRelatedness']['dev']['spearman'][0]
+        embeddings1 = []
+        embeddings2 = []
 
-        metrics = {"eval_stsb_spearman": stsb_spearman, "eval_sickr_spearman": sickr_spearman, "eval_avg_sts": (stsb_spearman + sickr_spearman) / 2} 
-        if eval_senteval_transfer or self.args.eval_transfer:
-            avg_transfer = 0
-            for task in ['MR', 'CR', 'SUBJ', 'MPQA', 'SST2', 'TREC', 'MRPC']:
-                avg_transfer += results[task]['devacc']
-                metrics['eval_{}'.format(task)] = results[task]['devacc']
-            avg_transfer /= 7
-            metrics['eval_avg_transfer'] = avg_transfer
+        with torch.no_grad():
+            for p1, p2 in zip(path1_list, path2_list):
+                encoded_1 = self.tokenizer(p1, return_tensors='pt', truncation=True, padding=True).to(self.args.device)
+                encoded_2 = self.tokenizer(p2, return_tensors='pt', truncation=True, padding=True).to(self.args.device)
 
+                emb1 = self.model(**encoded_1, return_dict=True, sent_emb=True).pooler_output
+                emb2 = self.model(**encoded_2, return_dict=True, sent_emb=True).pooler_output
+
+                embeddings1.append(emb1)
+                embeddings2.append(emb2)
+
+        # Stack all embeddings
+        embs1 = torch.cat(embeddings1, dim=0)
+        embs2 = torch.cat(embeddings2, dim=0)
+
+        # Cosine similarity
+        sims = F.cosine_similarity(embs1, embs2).cpu().numpy()
+        auc = roc_auc_score(labels, sims)
+
+        metrics = {f"{metric_key_prefix}_auc": auc} # eval_auc 반환, 기반 best model
         self.log(metrics)
         return metrics
-        
+            
     def _save_checkpoint(self, model, trial, metrics=None):
         """
         Compared to original implementation, we change the saving policy to
