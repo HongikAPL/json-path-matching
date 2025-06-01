@@ -24,7 +24,9 @@ python train.py \
     --evaluation_strategy steps \
     --metric_for_best_model eval_auc \
     --load_best_model_at_end True\
-    --eval_steps 125 \
+    --eval_steps 250 \
+    --save_steps 250 \
+    --save_strategy steps \
     --pooler_type cls \
     --mlp_only_train \
     --overwrite_output_dir \
