@@ -34,8 +34,8 @@ from transformers import (
 from transformers.tokenization_utils_base import BatchEncoding, PaddingStrategy, PreTrainedTokenizerBase
 from transformers.trainer_utils import is_main_process
 from transformers.data.data_collator import DataCollatorForLanguageModeling
-from transformers.file_utils import cached_property, torch_required, is_torch_available, is_torch_tpu_available
-from diffcse.models import RobertaForCL, BertForCL
+from transformers.file_utils import cached_property, is_torch_available, is_torch_tpu_available # torch_required
+from diffcse.models import RobertaForCL, BertForCL, VarclrForCL
 from diffcse.trainers import CLTrainer
 
 logger = logging.getLogger(__name__)
@@ -206,8 +206,15 @@ class OurTrainingArguments(TrainingArguments):
         metadata={"help": "Evaluate transfer task dev sets (in validation)."}
     )
 
+    # transformers >= 4.38.2
+    def __post_init__(self):
+        super().__post_init__()
+        # ✅ transformers >= 4.37 compatibility fix
+        if not hasattr(self, "distributed_state"):
+            self.distributed_state = None
+
     @cached_property
-    @torch_required
+    # @torch_required
     def _setup_devices(self) -> "torch.device":
         logger.info("PyTorch: setting up devices")
         if self.no_cuda:
@@ -335,6 +342,11 @@ def main():
     }
     if model_args.config_name:
         config = AutoConfig.from_pretrained(model_args.config_name, **config_kwargs)
+    
+    # VarCLR config 추가
+    elif 'varclr' in model_args.model_name_or_path:
+        config = AutoConfig.from_pretrained("microsoft/codebert-base", **config_kwargs)
+
     elif model_args.model_name_or_path:
         config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
     else:
@@ -349,6 +361,11 @@ def main():
     }
     if model_args.tokenizer_name:
         tokenizer = AutoTokenizer.from_pretrained(model_args.tokenizer_name, **tokenizer_kwargs)
+
+    ### VarCLR 토크나이저 추가
+    elif 'varclr' in model_args.model_name_or_path:
+        tokenizer = AutoTokenizer.from_pretrained("microsoft/codebert-base", **tokenizer_kwargs)
+        
     elif model_args.model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, **tokenizer_kwargs)
     else:
@@ -357,8 +374,22 @@ def main():
             "You can do it from another script, save it, and load it from here, using --tokenizer_name."
         )
 
+    # 모델 선택 VarCLR 추가
     if model_args.model_name_or_path:
-        if 'roberta' in model_args.model_name_or_path:
+        if 'varclr' in model_args.model_name_or_path:
+            # from_pretrained 오버라이딩
+            model = VarclrForCL.from_pretrained(
+                model_args.model_name_or_path,
+                from_tf=bool(".ckpt" in model_args.model_name_or_path),
+                config=config,
+                cache_dir=model_args.cache_dir,
+                revision=model_args.model_revision,
+                use_auth_token=True if model_args.use_auth_token else None,
+                model_args=model_args
+            )
+            # from_pretrained 에서 가중치 로드 완료 되므로 from_pretrained 호출 안함
+            model.electra_head = torch.nn.Linear(768, 2)
+        elif 'roberta' in model_args.model_name_or_path:
             model = RobertaForCL.from_pretrained(
                 model_args.model_name_or_path,
                 from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -579,7 +610,7 @@ def main():
     results = {}
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
-        results = trainer.evaluate(eval_senteval_transfer=True)
+        results = trainer.evaluate(eval_senteval_transfer=False) # SentEval 미사용, False
 
         output_eval_file = os.path.join(training_args.output_dir, "eval_results.txt")
         if trainer.is_world_process_zero():

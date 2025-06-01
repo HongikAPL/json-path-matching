@@ -1,30 +1,40 @@
 #!/bin/bash
+# model_name_or_path
+# BERT: bert-base-uncased
+# Roberta: roberta-base
+# VarCLR: ./varclr
+# generator_name
+# BERT: distillbert-base-uncased
+# Roberta, VarCLR: distrilroberta-base
 
 LR=7e-6
 MASK=0.30
 LAMBDA=0.005
 
 python train.py \
-    --model_name_or_path bert-base-uncased \
-    --generator_name distilbert-base-uncased \
-    --train_file data/wiki1m_for_simcse.txt \
-    --output_dir your_output_dir \
+    --model_name_or_path ./varclr \
+    --generator_name distilroberta-base \
+    --train_file data/train.txt \
+    --output_dir varclr-finetuned/output \
+    --cache_dir varclr-finetuned/cache \
     --num_train_epochs 2 \
     --per_device_train_batch_size 64 \
     --learning_rate $LR \
     --max_seq_length 32 \
     --evaluation_strategy steps \
-    --metric_for_best_model stsb_spearman \
-    --load_best_model_at_end \
+    --metric_for_best_model eval_auc \
+    --load_best_model_at_end True\
     --eval_steps 125 \
     --pooler_type cls \
     --mlp_only_train \
     --overwrite_output_dir \
     --logging_first_step \
-    --logging_dir your_logging_dir \
+    --logging_dir varclr-finetuned/log \
     --temp 0.05 \
     --do_train \
     --do_eval \
     --batchnorm \
     --lambda_weight $LAMBDA \
-    --fp16 --masking_ratio $MASK
+    --masking_ratio $MASK
+    # 분산학습
+    # --fp16 --masking_ratio $MASK

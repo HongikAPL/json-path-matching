@@ -1,0 +1,11 @@
+*.png
+.env
+LICENSE
+README.md
+# requirements.txt
+setup.py
+wandb
+cache
+log
+__pycache__
+output
