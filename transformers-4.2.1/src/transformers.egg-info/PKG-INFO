@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: transformers
 Version: 4.2.1
 Summary: State-of-the-art Natural Language Processing for TensorFlow 2.0 and PyTorch
@@ -7,7 +7,6 @@ Author: Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Sam Shleifer,
 Author-email: thomas@huggingface.co
 License: Apache
 Keywords: NLP deep learning transformer pytorch tensorflow BERT GPT GPT-2 google openai CMU
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -20,25 +19,145 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.6.0
 Description-Content-Type: text/markdown
-Provides-Extra: ja
-Provides-Extra: sklearn
-Provides-Extra: tf
-Provides-Extra: tf-cpu
-Provides-Extra: torch
-Provides-Extra: retrieval
-Provides-Extra: flax
-Provides-Extra: tokenizers
-Provides-Extra: onnxruntime
-Provides-Extra: modelcreation
-Provides-Extra: serving
-Provides-Extra: sentencepiece
-Provides-Extra: testing
-Provides-Extra: docs
-Provides-Extra: quality
-Provides-Extra: all
-Provides-Extra: dev
-Provides-Extra: torchhub
 License-File: LICENSE
+Requires-Dist: dataclasses; python_version < "3.7"
+Requires-Dist: importlib_metadata; python_version < "3.8"
+Requires-Dist: filelock
+Requires-Dist: numpy
+Requires-Dist: packaging
+Requires-Dist: regex!=2019.12.17
+Requires-Dist: requests
+Requires-Dist: sacremoses
+Requires-Dist: tokenizers==0.9.4
+Requires-Dist: tqdm>=4.27
+Provides-Extra: ja
+Requires-Dist: fugashi>=1.0; extra == "ja"
+Requires-Dist: ipadic<2.0,>=1.0.0; extra == "ja"
+Requires-Dist: unidic_lite>=1.0.7; extra == "ja"
+Requires-Dist: unidic>=1.0.2; extra == "ja"
+Provides-Extra: sklearn
+Requires-Dist: scikit-learn; extra == "sklearn"
+Provides-Extra: tf
+Requires-Dist: tensorflow>=2.3; extra == "tf"
+Requires-Dist: onnxconverter-common; extra == "tf"
+Requires-Dist: keras2onnx; extra == "tf"
+Provides-Extra: tf-cpu
+Requires-Dist: tensorflow-cpu>=2.3; extra == "tf-cpu"
+Requires-Dist: onnxconverter-common; extra == "tf-cpu"
+Requires-Dist: keras2onnx; extra == "tf-cpu"
+Provides-Extra: torch
+Requires-Dist: torch>=1.0; extra == "torch"
+Provides-Extra: retrieval
+Requires-Dist: faiss-cpu; extra == "retrieval"
+Requires-Dist: datasets; extra == "retrieval"
+Provides-Extra: flax
+Requires-Dist: jax>=0.2.0; extra == "flax"
+Requires-Dist: jaxlib==0.1.55; extra == "flax"
+Requires-Dist: flax>=0.2.2; extra == "flax"
+Provides-Extra: tokenizers
+Requires-Dist: tokenizers==0.9.4; extra == "tokenizers"
+Provides-Extra: onnxruntime
+Requires-Dist: onnxruntime>=1.4.0; extra == "onnxruntime"
+Requires-Dist: onnxruntime-tools>=1.4.2; extra == "onnxruntime"
+Provides-Extra: modelcreation
+Requires-Dist: cookiecutter==1.7.2; extra == "modelcreation"
+Provides-Extra: serving
+Requires-Dist: pydantic; extra == "serving"
+Requires-Dist: uvicorn; extra == "serving"
+Requires-Dist: fastapi; extra == "serving"
+Requires-Dist: starlette; extra == "serving"
+Provides-Extra: sentencepiece
+Requires-Dist: sentencepiece==0.1.91; extra == "sentencepiece"
+Requires-Dist: protobuf; extra == "sentencepiece"
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: pytest-xdist; extra == "testing"
+Requires-Dist: timeout-decorator; extra == "testing"
+Requires-Dist: parameterized; extra == "testing"
+Requires-Dist: psutil; extra == "testing"
+Requires-Dist: faiss-cpu; extra == "testing"
+Requires-Dist: datasets; extra == "testing"
+Requires-Dist: cookiecutter==1.7.2; extra == "testing"
+Provides-Extra: docs
+Requires-Dist: recommonmark; extra == "docs"
+Requires-Dist: sphinx==3.2.1; extra == "docs"
+Requires-Dist: sphinx-markdown-tables; extra == "docs"
+Requires-Dist: sphinx-rtd-theme==0.4.3; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Provides-Extra: quality
+Requires-Dist: black>=20.8b1; extra == "quality"
+Requires-Dist: isort>=5.5.4; extra == "quality"
+Requires-Dist: flake8>=3.8.3; extra == "quality"
+Provides-Extra: all
+Requires-Dist: tensorflow>=2.3; extra == "all"
+Requires-Dist: onnxconverter-common; extra == "all"
+Requires-Dist: keras2onnx; extra == "all"
+Requires-Dist: torch>=1.0; extra == "all"
+Requires-Dist: jax>=0.2.0; extra == "all"
+Requires-Dist: jaxlib==0.1.55; extra == "all"
+Requires-Dist: flax>=0.2.2; extra == "all"
+Requires-Dist: sentencepiece==0.1.91; extra == "all"
+Requires-Dist: protobuf; extra == "all"
+Requires-Dist: tokenizers==0.9.4; extra == "all"
+Provides-Extra: dev
+Requires-Dist: tensorflow>=2.3; extra == "dev"
+Requires-Dist: onnxconverter-common; extra == "dev"
+Requires-Dist: keras2onnx; extra == "dev"
+Requires-Dist: torch>=1.0; extra == "dev"
+Requires-Dist: jax>=0.2.0; extra == "dev"
+Requires-Dist: jaxlib==0.1.55; extra == "dev"
+Requires-Dist: flax>=0.2.2; extra == "dev"
+Requires-Dist: sentencepiece==0.1.91; extra == "dev"
+Requires-Dist: protobuf; extra == "dev"
+Requires-Dist: tokenizers==0.9.4; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
+Requires-Dist: timeout-decorator; extra == "dev"
+Requires-Dist: parameterized; extra == "dev"
+Requires-Dist: psutil; extra == "dev"
+Requires-Dist: faiss-cpu; extra == "dev"
+Requires-Dist: datasets; extra == "dev"
+Requires-Dist: cookiecutter==1.7.2; extra == "dev"
+Requires-Dist: black>=20.8b1; extra == "dev"
+Requires-Dist: isort>=5.5.4; extra == "dev"
+Requires-Dist: flake8>=3.8.3; extra == "dev"
+Requires-Dist: fugashi>=1.0; extra == "dev"
+Requires-Dist: ipadic<2.0,>=1.0.0; extra == "dev"
+Requires-Dist: unidic_lite>=1.0.7; extra == "dev"
+Requires-Dist: unidic>=1.0.2; extra == "dev"
+Requires-Dist: recommonmark; extra == "dev"
+Requires-Dist: sphinx==3.2.1; extra == "dev"
+Requires-Dist: sphinx-markdown-tables; extra == "dev"
+Requires-Dist: sphinx-rtd-theme==0.4.3; extra == "dev"
+Requires-Dist: sphinx-copybutton; extra == "dev"
+Requires-Dist: scikit-learn; extra == "dev"
+Requires-Dist: cookiecutter==1.7.2; extra == "dev"
+Provides-Extra: torchhub
+Requires-Dist: filelock; extra == "torchhub"
+Requires-Dist: importlib_metadata; extra == "torchhub"
+Requires-Dist: numpy; extra == "torchhub"
+Requires-Dist: packaging; extra == "torchhub"
+Requires-Dist: protobuf; extra == "torchhub"
+Requires-Dist: regex!=2019.12.17; extra == "torchhub"
+Requires-Dist: requests; extra == "torchhub"
+Requires-Dist: sacremoses; extra == "torchhub"
+Requires-Dist: sentencepiece==0.1.91; extra == "torchhub"
+Requires-Dist: torch>=1.0; extra == "torchhub"
+Requires-Dist: tokenizers==0.9.4; extra == "torchhub"
+Requires-Dist: tqdm>=4.27; extra == "torchhub"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <!---
 Copyright 2020 The HuggingFace Team. All rights reserved.
@@ -307,5 +426,3 @@ We now have a [paper](https://www.aclweb.org/anthology/2020.emnlp-demos.6/) you 
     pages = "38--45"
 }
 ```
-
-
