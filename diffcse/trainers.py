@@ -96,47 +96,83 @@ class CLTrainer(Trainer):
     def __init__(self, model, args, train_dataset, tokenizer, data_collator, **kwargs):
         super().__init__(model=model, args=args, train_dataset=train_dataset, tokenizer=tokenizer, data_collator=data_collator, **kwargs)
         self.use_amp = getattr(args, "fp16", False)
+        self.logger = logging.get_logger(__name__)
+        
+        # 디버깅 로그 추가
+        self.logger.info("=== CLTrainer Initialization ===")
+        self.logger.info(f"evaluation_strategy: {self.args.evaluation_strategy}")
+        self.logger.info(f"eval_steps: {self.args.eval_steps}")
+        self.logger.info(f"save_strategy: {self.args.save_strategy}")
+        self.logger.info(f"save_steps: {self.args.save_steps}")
 
-    def evaluate(
-    self,
-    eval_dataset: Optional[Dataset] = None,
-    ignore_keys: Optional[List[str]] = None,
-    metric_key_prefix: str = "eval",
-    eval_senteval_transfer: bool = False,
-    ) -> Dict[str, float]:
-        import pandas as pd
-        val_df = pd.read_csv("data/validation.txt", sep=None, engine="python", header=None, names=["path1", "path2", "label"])
-        path1_list = val_df["path1"].astype(str).tolist()
-        path2_list = val_df["path2"].astype(str).tolist()
-        labels = val_df["label"].astype(int).tolist()
-
-        self.model.eval()
-        embeddings1 = []
-        embeddings2 = []
-
-        with torch.no_grad():
-            for p1, p2 in zip(path1_list, path2_list):
-                encoded_1 = self.tokenizer(p1, return_tensors='pt', truncation=True, padding=True).to(self.args.device)
-                encoded_2 = self.tokenizer(p2, return_tensors='pt', truncation=True, padding=True).to(self.args.device)
-
-                emb1 = self.model(**encoded_1, return_dict=True, sent_emb=True).pooler_output
-                emb2 = self.model(**encoded_2, return_dict=True, sent_emb=True).pooler_output
-
-                embeddings1.append(emb1)
-                embeddings2.append(emb2)
-
-        # Stack all embeddings
-        embs1 = torch.cat(embeddings1, dim=0)
-        embs2 = torch.cat(embeddings2, dim=0)
-
-        # Cosine similarity
-        sims = F.cosine_similarity(embs1, embs2).cpu().numpy()
-        auc = roc_auc_score(labels, sims)
-
-        metrics = {f"{metric_key_prefix}_auc": auc} # eval_auc 반환, 기반 best model
-        self.log(metrics)
-        return metrics
+    def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval") -> Dict[str, float]:
+        """
+        Run evaluation and returns metrics.
+        """
+        # Check if validation file exists
+        val_file = "data/validation.txt"
+        if not os.path.exists(val_file):
+            logger.error(f"Validation file not found at {val_file}")
+            return {}
+            
+        # Read validation data with automatic separator detection
+        try:
+            val_df = pd.read_csv(val_file, sep=None, engine='python', 
+                               names=['path1', 'path2', 'label'],
+                               on_bad_lines='warn')
+            
+            # Clean the data
+            val_df = val_df.dropna()  # Remove rows with NA values
+            val_df['label'] = pd.to_numeric(val_df['label'], errors='coerce')  # Convert label to numeric
+            val_df = val_df.dropna()  # Remove rows where label conversion failed
+            
+            # Convert labels to integers
+            labels = val_df["label"].astype(int).tolist()
+            
+            # Get embeddings for both paths
+            path1_embeddings = self.get_embeddings(val_df["path1"].tolist())
+            path2_embeddings = self.get_embeddings(val_df["path2"].tolist())
+            
+            # Calculate similarities
+            similarities = F.cosine_similarity(path1_embeddings, path2_embeddings)
+            
+            # Calculate metrics
+            predictions = (similarities > 0.5).int()
+            accuracy = (predictions == torch.tensor(labels, device=predictions.device)).float().mean()
+            
+            # Calculate precision, recall, F1
+            true_positives = ((predictions == 1) & (torch.tensor(labels, device=predictions.device) == 1)).sum()
+            false_positives = ((predictions == 1) & (torch.tensor(labels, device=predictions.device) == 0)).sum()
+            false_negatives = ((predictions == 0) & (torch.tensor(labels, device=predictions.device) == 1)).sum()
+            
+            precision = true_positives / (true_positives + false_positives + 1e-8)
+            recall = true_positives / (true_positives + false_negatives + 1e-8)
+            f1 = 2 * (precision * recall) / (precision + recall + 1e-8)
+            
+            # Calculate AUC
+            try:
+                auc = roc_auc_score(labels, similarities.cpu().numpy())
+            except Exception as e:
+                logger.warning(f"Failed to calculate AUC: {str(e)}")
+                auc = 0.0
+            
+            metrics = {
+                f"{metric_key_prefix}_accuracy": accuracy.item(),
+                f"{metric_key_prefix}_precision": precision.item(),
+                f"{metric_key_prefix}_recall": recall.item(),
+                f"{metric_key_prefix}_f1": f1.item(),
+                f"{metric_key_prefix}_auc": auc,
+            }
+            
+            logger.info(f"Evaluation metrics: {metrics}")
+            return metrics
+            
+        except Exception as e:
+            logger.error(f"Error during evaluation: {str(e)}")
+            logger.error("Full traceback:", exc_info=True)
+            return {}
     
+    @staticmethod
     def unwrap_model(model):
         if isinstance(model, DistributedDataParallel):
             return model.module
@@ -150,14 +186,18 @@ class CLTrainer(Trainer):
 
         # In all cases, including ddp/dp/deepspeed, self.model is always a reference to the model we
         # want to save.
-        # assert _model_unwrap(model) is self.model, "internal model should be a reference to self.model"
-        assert unwrap_model(model) is self.model, "internal model should be a reference to self.model"
+        assert self.unwrap_model(model) is self.model, "internal model should be a reference to self.model"
 
         # Determine the new best metric / best model checkpoint
         if metrics is not None and self.args.metric_for_best_model is not None:
             metric_to_check = self.args.metric_for_best_model
             if not metric_to_check.startswith("eval_"):
                 metric_to_check = f"eval_{metric_to_check}"
+            
+            # 기본 메트릭을 accuracy로 설정
+            if metric_to_check not in metrics:
+                metric_to_check = "eval_accuracy"
+                
             metric_value = metrics[metric_to_check]
 
             operator = np.greater if self.args.greater_is_better else np.less
@@ -176,9 +216,6 @@ class CLTrainer(Trainer):
                     self.deepspeed.save_checkpoint(output_dir)
 
                 # Save optimizer and scheduler
-                if self.sharded_dpp:
-                    self.optimizer.consolidate_state_dict()
-
                 if is_torch_tpu_available():
                     xm.rendezvous("saving_optimizer_states")
                     xm.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
@@ -204,7 +241,6 @@ class CLTrainer(Trainer):
                     run_id = trial.number
                 else:
                     from ray import tune
-
                     run_id = tune.get_trial_id()
                 run_name = self.hp_name(trial) if self.hp_name is not None else f"run-{run_id}"
                 output_dir = os.path.join(self.args.output_dir, run_name, checkpoint_folder)
@@ -218,9 +254,6 @@ class CLTrainer(Trainer):
                 self.deepspeed.save_checkpoint(output_dir)
 
             # Save optimizer and scheduler
-            if self.sharded_dpp:
-                self.optimizer.consolidate_state_dict()
-
             if is_torch_tpu_available():
                 xm.rendezvous("saving_optimizer_states")
                 xm.save(self.optimizer.state_dict(), os.path.join(output_dir, "optimizer.pt"))
@@ -234,7 +267,6 @@ class CLTrainer(Trainer):
                     torch.save(self.lr_scheduler.state_dict(), os.path.join(output_dir, "scheduler.pt"))
                 reissue_pt_warnings(caught_warnings)
 
-
             # Save the Trainer state
             if self.is_world_process_zero():
                 self.state.save_to_json(os.path.join(output_dir, "trainer_state.json"))
@@ -244,39 +276,9 @@ class CLTrainer(Trainer):
                 self._rotate_checkpoints(use_mtime=True)
 
     def _maybe_log_save_evaluate(self, tr_loss, model, trial, epoch, tr_pos_sim, tr_neg_sim, tr_others):
-        if self.control.should_log:
-            logs: Dict[str, float] = {}
-            tr_loss_scalar = tr_loss.item()
-            # reset tr_loss to zero
-            tr_loss -= tr_loss
-
-            logs["loss"] = round(tr_loss_scalar / (self.state.global_step - self._globalstep_last_logged), 4)
-            # backward compatibility for pytorch schedulers
-            logs["learning_rate"] = (
-                self.lr_scheduler.get_last_lr()[0]
-                if version.parse(torch.__version__) >= version.parse("1.4")
-                else self.lr_scheduler.get_lr()[0]
-            )
-            self._total_loss_scalar += tr_loss_scalar
-
-            tr_pos_sim_scalar = tr_pos_sim.item()
-            tr_neg_sim_scalar = tr_neg_sim.item()
-            tr_pos_sim -= tr_pos_sim
-            tr_neg_sim -= tr_neg_sim
-            logs["pos_sim"] = round(tr_pos_sim_scalar / (self.state.global_step - self._globalstep_last_logged), 4)
-            logs["neg_sim"] = round(tr_neg_sim_scalar / (self.state.global_step - self._globalstep_last_logged), 4)
-            self._total_pos_sim_scalar += tr_pos_sim_scalar
-            self._total_neg_sim_scalar += tr_neg_sim_scalar
-            for key in tr_others:
-                tr_scalar = tr_others[key].item()
-                tr_others[key] -= tr_others[key]
-                logs[key] = round(tr_scalar / (self.state.global_step - self._globalstep_last_logged), 4)
-                self._total_others_scalar[key] += tr_scalar
-
-            self._globalstep_last_logged = self.state.global_step
-            self.log(logs)
-
-        metrics = None
+        # control 상태 업데이트
+        self._update_control()
+        
         if self.control.should_evaluate:
             metrics = self.evaluate()
             self._report_to_hp_search(trial, epoch, metrics)
@@ -284,6 +286,16 @@ class CLTrainer(Trainer):
         if self.control.should_save:
             self._save_checkpoint(model, trial, metrics=metrics)
             self.control = self.callback_handler.on_save(self.args, self.state, self.control)
+
+    def _update_control(self):
+        """Update control flags based on current step and evaluation strategy"""
+        # evaluation_strategy가 "steps"인 경우
+        if self.args.evaluation_strategy == "steps":
+            self.control.should_evaluate = self.state.global_step % self.args.eval_steps == 0
+        
+        # save_strategy가 "steps"인 경우
+        if self.args.save_strategy == "steps":
+            self.control.should_save = self.state.global_step % self.args.save_steps == 0
 
     def train(self, model_path: Optional[str] = None, trial: Union["optuna.Trial", Dict[str, Any]] = None):
         """
@@ -620,3 +632,19 @@ class CLTrainer(Trainer):
             self._total_others_scalar[key] += tr_others[key].item()
 
         return TrainOutput(self.state.global_step, self._total_loss_scalar / self.state.global_step, metrics)
+
+    def get_embeddings(self, texts: List[str]) -> torch.Tensor:
+        """
+        Get embeddings for a list of texts.
+        """
+        self.model.eval()
+        embeddings = []
+        
+        with torch.no_grad():
+            for text in texts:
+                encoded = self.tokenizer(text, return_tensors='pt', truncation=True, padding=True)
+                encoded = {k: v.to(self.model.device) for k, v in encoded.items()}
+                emb = self.model(**encoded, return_dict=True, sent_emb=True).pooler_output
+                embeddings.append(emb)
+                
+        return torch.cat(embeddings, dim=0)

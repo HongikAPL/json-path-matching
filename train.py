@@ -205,6 +205,22 @@ class OurTrainingArguments(TrainingArguments):
         default=False,
         metadata={"help": "Evaluate transfer task dev sets (in validation)."}
     )
+    evaluation_strategy: str = field(
+        default="steps",
+        metadata={"help": "The evaluation strategy to use."}
+    )
+    save_strategy: str = field(
+        default="steps",
+        metadata={"help": "The checkpoint save strategy to use."}
+    )
+    save_steps: int = field(
+        default=1,
+        metadata={"help": "Save checkpoint every X updates steps."}
+    )
+    eval_steps: int = field(
+        default=1,
+        metadata={"help": "Run an evaluation every X steps."}
+    )
 
     # transformers >= 4.38.2
     def __post_init__(self):
