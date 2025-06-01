@@ -15,8 +15,8 @@ python train.py \
     --model_name_or_path ./varclr \
     --generator_name distilroberta-base \
     --train_file data/train.txt \
-    --output_dir ./output \
-    --cache_dir ./cache \
+    --output_dir varclr-finetuned/output \
+    --cache_dir varclr-finetuned/cache \
     --num_train_epochs 2 \
     --per_device_train_batch_size 64 \
     --learning_rate $LR \
@@ -29,7 +29,7 @@ python train.py \
     --mlp_only_train \
     --overwrite_output_dir \
     --logging_first_step \
-    --logging_dir ./log \
+    --logging_dir varclr-finetuned/log \
     --temp 0.05 \
     --do_train \
     --do_eval \
