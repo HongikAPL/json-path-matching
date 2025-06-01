@@ -9,3 +9,5 @@ scikit-learn==0.24.0
 torch==2.1.2
 transformers==4.38.2
 tokenizers==0.14.1
+huggingface-hub==0.32.2
+gdown

@@ -38,6 +38,9 @@ from transformers.file_utils import cached_property, is_torch_available, is_torc
 from diffcse.models import RobertaForCL, BertForCL, VarclrForCL
 from diffcse.trainers import CLTrainer
 
+import warnings 
+warnings.filterwarnings("ignore")
+
 logger = logging.getLogger(__name__)
 MODEL_CONFIG_CLASSES = list(MODEL_FOR_MASKED_LM_MAPPING.keys())
 MODEL_TYPES = tuple(conf.model_type for conf in MODEL_CONFIG_CLASSES)
