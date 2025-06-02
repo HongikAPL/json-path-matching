@@ -609,7 +609,7 @@ def main():
             else None
         )
         train_result = trainer.train(model_path=model_path)
-        trainer.save_model()  # Saves the tokenizer too for easy upload
+        # trainer.save_model()  # Saves the tokenizer too for easy upload
 
         output_train_file = os.path.join(training_args.output_dir, "train_results.txt")
         if trainer.is_world_process_zero():

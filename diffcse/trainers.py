@@ -250,6 +250,7 @@ class CLTrainer(Trainer):
                 self.store_flos()
 
             self.save_model(output_dir)
+            logger.info("***** model save called *****\n")
             if self.deepspeed:
                 self.deepspeed.save_checkpoint(output_dir)
 

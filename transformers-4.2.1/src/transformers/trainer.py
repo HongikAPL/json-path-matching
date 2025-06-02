@@ -1312,7 +1312,7 @@ class Trainer:
 
         Will only save from the world_master process (unless in TPUs).
         """
-
+        logger.info("***** Model Saved! *****")
         if is_torch_tpu_available():
             self._save_tpu(output_dir)
         elif self.is_world_process_zero():
