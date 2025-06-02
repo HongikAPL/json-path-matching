@@ -466,7 +466,7 @@ class VarclrForCL(RobertaPreTrainedModel):
     def __init__(self, config, *model_args, **model_kargs):
         super().__init__(config)
         self.model_args = model_kargs["model_args"]
-        self.bert = RobertaModel(config, add_pooling_layer=False)
+        self.roberta = RobertaModel(config, add_pooling_layer=False)
         self.lm_head = RobertaLMHead(config)
         self.discriminator = RobertaModel(config, add_pooling_layer=False)
         cl_init(self, config)
