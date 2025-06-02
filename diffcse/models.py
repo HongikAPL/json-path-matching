@@ -530,7 +530,7 @@ class VarclrForCL(RobertaPreTrainedModel):
         mlm_labels=None,
     ):
         if sent_emb:
-            return sentemb_forward(self, self.bert,
+            return sentemb_forward(self, self.roberta,
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 token_type_ids=token_type_ids,
@@ -543,7 +543,7 @@ class VarclrForCL(RobertaPreTrainedModel):
                 return_dict=return_dict,
             )
         else:
-            return cl_forward(self, self.bert,
+            return cl_forward(self, self.roberta,
                 input_ids=input_ids,
                 attention_mask=attention_mask,
                 token_type_ids=token_type_ids,
