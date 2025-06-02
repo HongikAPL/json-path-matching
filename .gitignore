@@ -5,7 +5,8 @@ README.md
 # requirements.txt
 setup.py
 wandb
-cache
-log
 __pycache__
-output
+varclr-finetuned
+*.lock
+/data/text
+run_diffcse.sh

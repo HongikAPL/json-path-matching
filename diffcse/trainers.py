@@ -105,7 +105,7 @@ class CLTrainer(Trainer):
         self.logger.info(f"save_strategy: {self.args.save_strategy}")
         self.logger.info(f"save_steps: {self.args.save_steps}")
 
-    def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval") -> Dict[str, float]:
+    def evaluate(self, eval_dataset=None, ignore_keys=None, metric_key_prefix="eval", **kwargs) -> Dict[str, float]:
         """
         Run evaluation and returns metrics.
         """
