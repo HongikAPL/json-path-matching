@@ -500,7 +500,7 @@ class VarclrForCL(RobertaPreTrainedModel):
         # 가중치 로드
         if os.path.exists(varclr_model_path):
             state_dict = torch.load(varclr_model_path, map_location="cpu")
-            instance.bert.load_state_dict(state_dict, strict=False)
+            instance.roberta.load_state_dict(state_dict, strict=False)
             instance.discriminator.load_state_dict(state_dict, strict=False)
         else:
             print(f"[VarCLR] Warning: {varclr_model_path} not found. Using randomly initialized weights.")
@@ -508,10 +508,10 @@ class VarclrForCL(RobertaPreTrainedModel):
         return instance
     
     def get_input_embeddings(self):
-        return self.bert.embeddings.word_embeddings
+        return self.roberta.embeddings.word_embeddings
 
     def set_input_embeddings(self, new_embeddings):
-        self.bert.embeddings.word_embeddings = new_embeddings
+        self.roberta.embeddings.word_embeddings = new_embeddings
 
     
     def forward(self,
