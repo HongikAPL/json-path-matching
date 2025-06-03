@@ -10,3 +10,4 @@ varclr-finetuned
 *.lock
 /data/text
 run_diffcse.sh
+.DS_Store
